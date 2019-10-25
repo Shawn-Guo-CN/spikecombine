@@ -57,6 +57,7 @@ class DataLoader(object):
         self.sorter_names = [_dir_name for _dir_name in self._sorter_results_path.iterdir() if _dir_name.is_dir()]
 
         self.gt_sortings = self._build_ground_truth_sortings()
+        self.sorter_sortings = self._build_sorters_sortings()
     
     def _loading_ground_truth(self):
         raise NotImplementedError
@@ -75,15 +76,29 @@ class DataLoader(object):
         return _gt_sortings
 
     def get_ground_truth_sortings(self):
-        if hasattr(self, 'gt_sorting'):
-            return self.gt_sortings
-        else:
-            raise AttributeError, "Please first build up the ground truth sortings." 
+        return self.gt_sortings
 
-    def get_sorter_sortings(self):
-        raise NotImplementedError
+    def _build_sorters_sortings(self):
+        _sorter2dataset = {}
+
+        for sorter_name in self.sorter_names:
+            _dataset2result = {}
+            for dataset_name in self.dataset_names:
+                _dataset2result[dataset_name] = \
+                    se.MEArecSortingExtractor(file_path=self._sorter_results_path/ sorter_name / (dataset_name + '.h5'))
+            _sorter2dataset[sorter_name] = _dataset2result
+
+        return _sorter2dataset
+
+    def get_sorter_sortings(self, sorter=None):
+        assert sorter is not None
+        assert sorter in self.sorter_names, """
+            The data path only contains results from 
+        """ + ' '.join(self.sorter_names)
+
+        return self.sorter_sortings[sorter]
 
     def get_all_sorter_sortings(self):
-        raise NotImplementedError
+        return self.sorter_sortings
     
 
