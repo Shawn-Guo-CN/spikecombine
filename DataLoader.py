@@ -39,11 +39,8 @@ class DataLoader(object):
             Please make sure that the hierachy of loading dir is as expected.
         """
 
-        self._ground_truth_path = Path(data_path) / 'ground_truth'
-        self._sorter_results_path = Path(data_path) / 'sorter_results'
-
-        self.dataset_names = [str(_file_name).split('.')[0] for _file_name in self._ground_truth_path.glob('*.h5')]
-        self.sorter_names = [_dir_name for _dir_name in self._sorter_results_path.iterdir() if _dir_name.is_dir()]
+        self.dataset_names = [_file_name.stem for _file_name in self._ground_truth_path.glob('*.h5')]
+        self.sorter_names = [_dir_name.stem for _dir_name in self._sorter_results_path.iterdir() if _dir_name.is_dir()]
 
         self.gt_sortings = self._build_ground_truth_sortings()
         self.sorter_sortings = self._build_sorters_sortings()
