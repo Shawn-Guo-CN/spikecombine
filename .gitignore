@@ -105,3 +105,4 @@ venv.bak/
 
 # added by Shawn
 data/
+*tmp*
