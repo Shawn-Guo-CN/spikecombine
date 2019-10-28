@@ -40,9 +40,6 @@ class DataGenerator(object):
         """
         return se.example_datasets.toy_example(num_channels=10, duration=50)
 
-    def _run_sorter(self, sorter:str=None):
-        raise NotImplementedError
-
     @staticmethod
     def _create_dir(dir:str, verbose:bool=False):
             try:
