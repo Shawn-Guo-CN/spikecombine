@@ -13,7 +13,7 @@ class SpikeSortersCombiner(object):
         self._sorter_names = None
 
         # the following 3 are parameters
-        self.params = {
+        self._params = {
             'positive':{
                 'means': None, # should be a [K, N] np array
                 'covars': None, # should be a [K, N, N] np array
@@ -73,14 +73,27 @@ class SpikeSortersCombiner(object):
 
     def get_params_for_sorter(self, sortername:str=None):
         return {
-            'positive_mean': self.params['positive']['means'][self._sortername_to_id[sortername]],
-            'positive_covar': self.params['positive']['covars'][self._sortername_to_id[sortername]],
-            'negative_mean': self.params['negative']['means'][self._sortername_to_id[sortername]],
-            'negative_covar': self.params['negative']['covars'][self._sortername_to_id[sortername]],
+            'positive_mean': self._params['positive']['means'][self._sortername_to_id[sortername]],
+            'positive_covar': self._params['positive']['covars'][self._sortername_to_id[sortername]],
+            'negative_mean': self._params['negative']['means'][self._sortername_to_id[sortername]],
+            'negative_covar': self._params['negative']['covars'][self._sortername_to_id[sortername]],
         }
 
-    def load(self):
-        raise NotImplementedError
+    def load(self, path:str):
+        with open(path, 'rb') as in_file:
+            loaded_obj = pickle.load(in_file)
 
-    def save(self):
-        raise NotImplementedError
+        self._params = loaded_obj['params']
+        self._sortername_to_id = loaded_obj['sortername2id']
+
+        del loaded_obj
+
+    def save(self, path:str):
+        with open(path, 'wb') as out_file:
+            pickle.dump(
+                {
+                    'params': self._params,
+                    'sortername2id': self._sortername_to_id
+                },
+                out_file
+            )
