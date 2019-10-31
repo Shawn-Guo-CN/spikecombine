@@ -12,8 +12,9 @@ class SpikeSortersCombiner(object):
     1. K mean vectors (1*N) and the corresponding K covariance matrix (N*N);
     2. categorical distribution on K different sorters.
     """
-    def __init__(self, well):
-        self._sorter_names = None
+    def __init__(self, well_detected_threshold:float=0.7):
+        
+        self._well_detected_threshold = well_detected_threshold
 
         # the following 3 are parameters
         self._params = {
@@ -29,7 +30,8 @@ class SpikeSortersCombiner(object):
             }
         }
 
-        self._sortername_to_id = None
+        self._sorter_names = []
+        self._sortername_to_id = {}
 
     def _generate_data_for_one_sorter(self, sorter_sortings, gt_sortings, recordings):
         """
@@ -48,7 +50,7 @@ class SpikeSortersCombiner(object):
             recording = recordings[dataset_name]
 
             gt_comparison = sc.compare_sorter_to_ground_truth(sorting_gt, sorting_sorter, exhaustive_gt=True)
-            well_detected_units = gt_comparison.get_well_detected_units()
+            well_detected_units = gt_comparison.get_well_detected_units(self._well_detected_threshold)
 
             metric_matrix = st.validation.MetricCalculator(sorting_sorter, recording)
             metric_matrix.compute_metrics()
@@ -56,17 +58,22 @@ class SpikeSortersCombiner(object):
 
             for unit_id in sorting_sorter.get_unit_ids():
                 if unit_id in well_detected_units:
-                    positive_metrics.append(metrics_df.loc[unit_id, :].values)
+                    positive_metrics.append(metrics_df.loc[unit_id-1, :].values[:15])
                 else:
-                    negative_metrics.append(metrics_df.loc[unit_id, :].values)
+                    negative_metrics.append(metrics_df.loc[unit_id-1, :].values[:15])
 
-        positive_metrics = np.array(positive_metrics)
-        negative_metrics = np.array(negative_metrics)
+        assert len(positive_metrics) > 0
+        assert len(negative_metrics) > 0
+
+        positive_metrics = np.array(positive_metrics, dtype=float)
+        negative_metrics = np.array(negative_metrics, dtype=float)
         
         return positive_metrics, negative_metrics
 
     def _fit_one_sorter(self, data):
-        raise NotImplementedError
+        mean = np.mean(data, axis=0)
+        cov = np.cov(data, rowvar=0)
+        return mean, cov
 
     @staticmethod
     def _set_prior(K, mode:str='uniform'):
@@ -86,11 +93,11 @@ class SpikeSortersCombiner(object):
         _negative_covars = []
         _negative_prior = self._set_prior(K, prior_mode)
 
-        for sorter_name in dataloader.sorter_names():
+        for sorter_name in dataloader.sorter_names:
             positive_data, negative_data = self._generate_data_for_one_sorter(
-                    dataloader.gt_sortings[sorter_name],
+                    dataloader.gt_sortings,
                     dataloader.sorter_sortings[sorter_name],
-                    dataloader.recordings[sorter_name]
+                    dataloader.recordings
                 )
 
             pos_mean, pos_covar = self._fit_one_sorter(positive_data)
