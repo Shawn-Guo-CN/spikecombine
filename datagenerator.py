@@ -59,6 +59,7 @@ class DataGenerator(object):
 
         self._create_dir(out_dir)
         self._create_dir(out_dir / 'ground_truth')
+        self._create_dir(out_dir / 'recordings')
         self._create_dir(out_dir / 'sorter_results')
         self._create_dir(out_dir / 'tmp')
         for sorter_name in self._sorter_names:
@@ -72,6 +73,7 @@ class DataGenerator(object):
         for config in config_list:
             recording, sorting_true = self.generate_a_dataset(config)
             sampling_freq = recording.get_sampling_frequency()
+
             se.MEArecSortingExtractor.write_sorting(
                 sorting=sorting_true,
                 save_path=Path(out_dir) / 'ground_truth' / (config['name']+'.h5'),
@@ -80,6 +82,14 @@ class DataGenerator(object):
             if verbose:
                 print("Successfully saved the true sorting of generated date to " + \
                                     Path(out_dir) / 'ground_truth' / (config['name']+'.h5'))
+
+            se.MEArecRecordingExtractor.write_recording(
+                recording=recording,
+                save_path=Path(out_dir) / 'recordings' / (config['name']+'.h5'),
+            )
+            if verbose:
+                print("Successfully saved the generated recording to " + \
+                                    Path(out_dir) / 'recordings' / (config['name']+'.h5'))
 
             for sorter_name in self._sorter_names:
                 sorting = ss.sorterlist.run_sorter(
