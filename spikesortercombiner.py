@@ -57,10 +57,11 @@ class SpikeSortersCombiner(object):
             metrics_df = metric_matrix.get_metrics_df()
 
             for unit_id in sorting_sorter.get_unit_ids():
-                if unit_id in well_detected_units:
-                    positive_metrics.append(metrics_df.loc[unit_id-1, :].values[:15])
-                else:
-                    negative_metrics.append(metrics_df.loc[unit_id-1, :].values[:15])
+                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[:15], dtype='float')
+                if unit_id in well_detected_units and not np.isnan(appending_value).any():
+                    positive_metrics.append(appending_value)
+                elif not np.isnan(appending_value).any():
+                    negative_metrics.append(appending_value)
 
         assert len(positive_metrics) > 0
         assert len(negative_metrics) > 0
@@ -82,7 +83,7 @@ class SpikeSortersCombiner(object):
         else:
             raise NotImplementedError
 
-    def fit(self, dataloader, prior_mode:str='uniform') -> None:
+    def fit(self, dataloader, prior_mode:str='uniform', verbose:bool=False) -> None:
         K = len(dataloader.sorter_names)
 
         _positive_means = []
@@ -110,11 +111,48 @@ class SpikeSortersCombiner(object):
 
             self._sortername_to_id[sorter_name] = len(_positive_means) - 1
 
-    def predict(self):
-        assert all(), """
-            Please fit or load model before prediction.
+        self._params['positive']['means'] = np.asarray(_positive_means, dtype='float')
+        self._params['positive']['covars'] = np.asarray(_positive_covars, dtype='float')
+        self._params['positive']['sorter_prior'] = np.asarray(_positive_prior, dtype='float')
+
+        self._params['negative']['means'] = np.asarray(_negative_means, dtype='float')
+        self._params['negative']['covars'] = np.asarray(_negative_covars, dtype='float')
+        self._params['negative']['sorter_prior'] = np.asarray(_negative_prior, dtype='float')
+
+        if verbose:
+            print('Fitted to the provided data.')
+    
+    def _combine_units_from_different_sorters(self, sorter_sortings):
+        raise NotImplementedError
+
+    def _predict_posterior_prob(self, unit, mode_params):
+        """
+        mode_params is a dict consists of 'means', 'covars' and 'sorter_prior'
         """
         raise NotImplementedError
+
+    def predict(self, sorter_sortings):
+        assert all(v is not None for v in t.values() for t in self._params.values()), """
+            Please fit or load model before prediction.
+        """
+
+        assert set(sorter_sortings.keys()).issubset(set(self._sorter_names)), """
+            Model does not contain all sorters in the input results.
+        """
+
+        units_pool = self._combine_units_from_different_sorters(sorter_sortings)
+
+        # TODO: consider how to store these decisions
+        units_decision = []
+
+        for unit in units_pool:
+            positive_p = self._predict_posterior_prob(unit, self._params['positive'])
+            negative_p = self._predict_posterior_prob(unit, self._params['negative'])
+
+            if positive_p >= negative_p:
+                units_decision.append(unit)
+        
+        return units_decision
 
     def get_params_for_sorter(self, sortername:str=None):
         return {
