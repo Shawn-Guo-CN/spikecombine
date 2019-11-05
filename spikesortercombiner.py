@@ -57,7 +57,8 @@ class SpikeSortersCombiner(object):
             metrics_df = metric_matrix.get_metrics_df()
 
             for unit_id in sorting_sorter.get_unit_ids():
-                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[:15], dtype='float')
+                # 1:15 is because that we want to ignore the unit_ids
+                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[1:15], dtype='float')
                 if unit_id in well_detected_units and not np.isnan(appending_value).any():
                     positive_metrics.append(appending_value)
                 elif not np.isnan(appending_value).any():
@@ -131,16 +132,14 @@ class SpikeSortersCombiner(object):
         """
         raise NotImplementedError
 
-    def predict(self, sorter_sortings):
+    def predict(self, recording, sorting, sorter_name:str):
         assert all(v is not None for v in t.values() for t in self._params.values()), """
             Please fit or load model before prediction.
         """
 
-        assert set(sorter_sortings.keys()).issubset(set(self._sorter_names)), """
-            Model does not contain all sorters in the input results.
-        """
-
-        units_pool = self._combine_units_from_different_sorters(sorter_sortings)
+        assert sorter_name in set(self._sorter_names), """
+            Model has not modelled {}.
+        """ % (sorter_name)
 
         # TODO: consider how to store these decisions
         units_decision = []
