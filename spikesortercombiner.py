@@ -126,13 +126,13 @@ class SpikeSortersCombiner(object):
     def _combine_units_from_different_sorters(self, sorter_sortings):
         raise NotImplementedError
 
-    def _predict_posterior_prob(self, unit, mode_params):
+    def _predict_posterior_prob(self, unit_metric, model_params, sorter_name):
         """
         mode_params is a dict consists of 'means', 'covars' and 'sorter_prior'
         """
         raise NotImplementedError
 
-    def predict(self, recording, sorting, sorter_name:str):
+    def predict(self, sorting, recording, sorter_name:str):
         assert all(v is not None for v in t.values() for t in self._params.values()), """
             Please fit or load model before prediction.
         """
@@ -141,17 +141,23 @@ class SpikeSortersCombiner(object):
             Model has not modelled {}.
         """ % (sorter_name)
 
-        # TODO: consider how to store these decisions
-        units_decision = []
+        mc = st.validation.MetricCalculator(sorting, recording)
+        metric_matrix = mc.get_metrics_df()
+        unit_ids = mc.get_unit_ids()
+        units_to_be_excluded = []
 
-        for unit in units_pool:
-            positive_p = self._predict_posterior_prob(unit, self._params['positive'])
-            negative_p = self._predict_posterior_prob(unit, self._params['negative'])
+        for unit_id in unit_ids:
+            unit_metric = np.asarray(metric_matrix.loc[unit_id-1, :].values[1:15], dtype='float')
+            positive_p = self._predict_posterior_prob(unit_metric, self._params['positive'], sorter_name)
+            negative_p = self._predict_posterior_prob(unit_metric, self._params['negative'], sorter_name)
 
-            if positive_p >= negative_p:
-                units_decision.append(unit)
+            if positive_p < negative_p:
+                units_to_be_excluded.append(unit_id)
+
+        cse = st.curation.CurationSortingExtractor(sorting)
+        cse.exclude_units(units_to_be_excluded)
         
-        return units_decision
+        return cse
 
     def get_params_for_sorter(self, sortername:str=None):
         return {
