@@ -1,5 +1,6 @@
 import pickle
 import numpy as np
+from scipy.stats import multivariate_normal
 
 import spikeinterface.comparison as sc
 import spikeinterface.toolkit as st
@@ -134,15 +135,16 @@ class SpikeSortersCombiner(object):
         return ids
 
     @staticmethod
-    def _exclude_dimensions(ids, x):
+    def _exclude_dimensions(x, ids):
         if x.ndim == 1:
-            raise NotImplementedError
+            return np.delete(x, ids)
         elif x.ndim == 2:
-            raise NotImplementedError
+            x = np.delete(x, ids, 0)
+            return np.delete(x, ids, 1)
         else:
             raise NotImplementedError
     
-    def _predict_posterior_prob(self, unit_metric, model_params, sorter_name):
+    def _calculate_posterior_prob(self, unit_metric):
         """
         mode_params is a dict consists of 'means', 'covars' and 'sorter_prior'
         """
@@ -152,15 +154,46 @@ class SpikeSortersCombiner(object):
 
         nan_dims = self._get_nan_dims(unit_metric)
 
-        unit_metric = self._exclude_dimensions(nan_dims, unit_metric)
+        unit_metric = self._exclude_dimensions(unit_metric, nan_dims)
 
-        raise NotImplementedError
+        positive_posts_metric = {}
+        negative_posts_metric = {}
+
+        for sorter in self._sorter_names:
+            _params = self.get_params_for_sorter(sorter)
+
+            positive_mean = self._exclude_dimensions(_params['positive_mean'], nan_dims)
+            positive_covar = self._exclude_dimensions(_params['positive_covar'], nan_dims)
+
+            negative_mean = self._exclude_dimensions(_params['negative_mean'], nan_dims)
+            negative_covar = self._exclude_dimensions(_params['negative_covar'], nan_dims)
+
+            positive_p = multivariate_normal(mean=positive_mean, cov=positive_covar).pdf(unit_metric)
+            negative_p = multivariate_normal(mean=negative_mean, cov=negative_covar).pdf(unit_metric)
+
+            positive_posts_metric[sorter] = positive_p
+            negative_posts_metric[sorter] = negative_p
+
+        return positive_posts_metric, negative_posts_metric
 
     @staticmethod
     def _compare_one_sorter_with_all_others(sorting, all_sortings):
-        raise NotImplementedError
+        """
+        Return:
 
-    def predict(self, sortings, recording, sorter_name:str):
+        A 2D np array with shape [N_Units, K]
+        """
+        agreements = {}
+
+        for other_sorter_name in sorted(all_sortings.keys()):
+            compare = sc.compare_two_sorters(sorting1=sorting, sorting2=all_sortings[other_sorter_name], 
+                                             sorting1_name='original', sorting2_name='other')
+            _agreement = compare.agreement_scores.to_numpy().max(axis=0)
+            agreements[other_sorter_name] = _agreement
+
+        return agreements
+
+    def predict(self, sortings, recording, sorter_name:str, threshold:float=0.7):
         """
         Parameters:
 
@@ -172,9 +205,9 @@ class SpikeSortersCombiner(object):
             Please fit or load model before prediction.
         """
 
-        assert sorter_name in set(self._sorter_names), """
-            Model has not modelled {}.
-        """ % (sorter_name)
+        assert set(sortings.keys).issubset(set(self._sorter_names)), """
+            Input sortings contains results from un-modelled sorters.
+        """
 
         mc = st.validation.MetricCalculator(sortings[sorter_name], recording)
         metric_matrix = mc.get_metrics_df()
@@ -184,15 +217,26 @@ class SpikeSortersCombiner(object):
         unit_ids = mc.get_unit_ids()
         units_to_be_excluded = []
 
-        for unit_id in unit_ids:
+        for idx, unit_id in enumerate(unit_ids):
             unit_metric = np.asarray(metric_matrix.loc[unit_id-1, :].values[1:15], dtype='float')
-            positive_p = self._predict_posterior_prob(unit_metric, self._params['positive'], sorter_name)
-            negative_p = self._predict_posterior_prob(unit_metric, self._params['negative'], sorter_name)
+            p_post_metric, neg_post_metric = self._calculate_posterior_prob(unit_metric)
+
+            positive_ps = []
+            negative_ps = []
+
+            for sorter_name in sortings.keys():
+                if agreements[sorter_name][idx] >= threshold:
+                    positive_ps.append(agreements[sorter_name][idx] * p_post_metric[sorter_name])
+                else:
+                    negative_ps.append((1. - agreements[sorter_name][idx]) * neg_post_metric[sorter_name])
+            
+            positive_p = 0. if len(positive_ps) == 0 else np.mean(positive_ps)
+            negative_p = 0. if len(negative_ps) == 0 else np.mean(negative_ps)
 
             if positive_p < negative_p:
                 units_to_be_excluded.append(unit_id)
 
-        cse = st.curation.CurationSortingExtractor(sorting)
+        cse = st.curation.CurationSortingExtractor(sortings[sorter_name])
         cse.exclude_units(units_to_be_excluded)
         
         return cse
