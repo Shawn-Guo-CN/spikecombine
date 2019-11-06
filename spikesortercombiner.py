@@ -122,17 +122,52 @@ class SpikeSortersCombiner(object):
 
         if verbose:
             print('Fitted to the provided data.')
-    
-    def _combine_units_from_different_sorters(self, sorter_sortings):
-        raise NotImplementedError
 
+    @staticmethod
+    def _get_nan_dims(x):
+        ids = []
+        # TODO: check whether size could be applied to 1D array.
+        for i in range(x.size):
+            if np.isnan(x[i]):
+                ids.append(i)
+
+        return ids
+
+    @staticmethod
+    def _exclude_dimensions(ids, x):
+        if x.ndim == 1:
+            raise NotImplementedError
+        elif x.ndim == 2:
+            raise NotImplementedError
+        else:
+            raise NotImplementedError
+    
     def _predict_posterior_prob(self, unit_metric, model_params, sorter_name):
         """
         mode_params is a dict consists of 'means', 'covars' and 'sorter_prior'
         """
+        assert set(['means', 'covars', 'sorter_prior']) == set(model_params.keys()), """
+            The input model params don't contain all the necessary modules for inference.
+        """
+
+        nan_dims = self._get_nan_dims(unit_metric)
+
+        unit_metric = self._exclude_dimensions(nan_dims, unit_metric)
+
         raise NotImplementedError
 
-    def predict(self, sorting, recording, sorter_name:str):
+    @staticmethod
+    def _compare_one_sorter_with_all_others(sorting, all_sortings):
+        raise NotImplementedError
+
+    def predict(self, sortings, recording, sorter_name:str):
+        """
+        Parameters:
+
+        sortings: a dictionary that contains all the sorting results
+        recording: the original recording for generating all the sorting results
+        sorter_name: the sorting result we want to evaluate
+        """
         assert all(v is not None for v in t.values() for t in self._params.values()), """
             Please fit or load model before prediction.
         """
@@ -141,8 +176,11 @@ class SpikeSortersCombiner(object):
             Model has not modelled {}.
         """ % (sorter_name)
 
-        mc = st.validation.MetricCalculator(sorting, recording)
+        mc = st.validation.MetricCalculator(sortings[sorter_name], recording)
         metric_matrix = mc.get_metrics_df()
+
+        agreements = self._compare_one_sorter_with_all_other(sortings[sorter_name], sortings)
+
         unit_ids = mc.get_unit_ids()
         units_to_be_excluded = []
 
