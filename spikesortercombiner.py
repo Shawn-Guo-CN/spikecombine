@@ -14,6 +14,8 @@ class SpikeSortersCombiner(object):
     2. categorical distribution on K different sorters.
     """
     def __init__(self, well_detected_threshold:float=0.7):
+        self.metric_names = ['firing_rate', 'num_spikes', 'presence_ratio', 'amplitude_cutoff', 'silhouette_score', 
+                             'isolation_distance', 'l_ratio', 'd_prime', 'nn_hit_rate', 'snr']
         
         self._well_detected_threshold = well_detected_threshold
 
@@ -54,12 +56,12 @@ class SpikeSortersCombiner(object):
             well_detected_units = gt_comparison.get_well_detected_units(self._well_detected_threshold)
 
             metric_matrix = st.validation.MetricCalculator(sorting_sorter, recording)
-            metric_matrix.compute_metrics()
+            metric_matrix.compute_metrics(metric_names=self.metric_names)
             metrics_df = metric_matrix.get_metrics_df()
 
             for unit_id in sorting_sorter.get_unit_ids():
                 # 1:15 is because that we want to ignore the unit_ids
-                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[1:15], dtype='float')
+                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[1:11], dtype='float')
                 if unit_id in well_detected_units and not np.isnan(appending_value).any():
                     positive_metrics.append(appending_value)
                 elif not np.isnan(appending_value).any():
@@ -145,13 +147,6 @@ class SpikeSortersCombiner(object):
             raise NotImplementedError
     
     def _calculate_posterior_prob(self, unit_metric):
-        """
-        mode_params is a dict consists of 'means', 'covars' and 'sorter_prior'
-        """
-        assert set(['means', 'covars', 'sorter_prior']) == set(model_params.keys()), """
-            The input model params don't contain all the necessary modules for inference.
-        """
-
         nan_dims = self._get_nan_dims(unit_metric)
 
         unit_metric = self._exclude_dimensions(unit_metric, nan_dims)
@@ -200,25 +195,27 @@ class SpikeSortersCombiner(object):
         sortings: a dictionary that contains all the sorting results
         recording: the original recording for generating all the sorting results
         sorter_name: the sorting result we want to evaluate
+        threshold: the threshold for agreement that another sorter also detects a unit in 'sorter_name'
         """
-        assert all(v is not None for v in t.values() for t in self._params.values()), """
+        assert all(True for t in self._params.values() for v in t.values() if v is not None), """
             Please fit or load model before prediction.
         """
 
-        assert set(sortings.keys).issubset(set(self._sorter_names)), """
+        assert set(sortings.keys()).issubset(set(self._sorter_names)), """
             Input sortings contains results from un-modelled sorters.
         """
 
         mc = st.validation.MetricCalculator(sortings[sorter_name], recording)
+        mc.compute_metrics(metric_names=self.metric_names)
         metric_matrix = mc.get_metrics_df()
 
-        agreements = self._compare_one_sorter_with_all_other(sortings[sorter_name], sortings)
+        agreements = self._compare_one_sorter_with_all_others(sortings[sorter_name], sortings)
 
         unit_ids = mc.get_unit_ids()
         units_to_be_excluded = []
 
         for idx, unit_id in enumerate(unit_ids):
-            unit_metric = np.asarray(metric_matrix.loc[unit_id-1, :].values[1:15], dtype='float')
+            unit_metric = np.asarray(metric_matrix.loc[unit_id, :].values[1:12], dtype='float')
             p_post_metric, neg_post_metric = self._calculate_posterior_prob(unit_metric)
 
             positive_ps = []
@@ -255,6 +252,7 @@ class SpikeSortersCombiner(object):
 
         self._params = loaded_obj['params']
         self._sortername_to_id = loaded_obj['sortername2id']
+        self._sorter_names = sorted(self._sortername_to_id.keys())
 
         del loaded_obj
 
