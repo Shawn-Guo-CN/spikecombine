@@ -14,8 +14,9 @@ class SpikeSortersCombiner(object):
     2. categorical distribution on K different sorters.
     """
     def __init__(self, well_detected_threshold:float=0.7):
-        self.metric_names = ['firing_rate', 'num_spikes', 'presence_ratio', 'amplitude_cutoff', 'silhouette_score', 
-                             'isolation_distance', 'l_ratio', 'd_prime', 'nn_hit_rate', 'snr']
+        self.metric_names = ['num_spikes', 'firing_rate', 'presence_ratio',  'snr']
+
+        # 'amplitude_cutoff', 'silhouette_score', 'isolation_distance', 'l_ratio', 'd_prime', 'nn_hit_rate',
         
         self._well_detected_threshold = well_detected_threshold
 
@@ -61,7 +62,7 @@ class SpikeSortersCombiner(object):
 
             for unit_id in sorting_sorter.get_unit_ids():
                 # 1:15 is because that we want to ignore the unit_ids
-                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[1:11], dtype='float')
+                appending_value = np.asarray(metrics_df.loc[unit_id-1, :].values[1:5], dtype='float')
                 if unit_id in well_detected_units and not np.isnan(appending_value).any():
                     positive_metrics.append(appending_value)
                 elif not np.isnan(appending_value).any():
@@ -215,7 +216,7 @@ class SpikeSortersCombiner(object):
         units_to_be_excluded = []
 
         for idx, unit_id in enumerate(unit_ids):
-            unit_metric = np.asarray(metric_matrix.loc[unit_id, :].values[1:12], dtype='float')
+            unit_metric = np.asarray(metric_matrix.loc[unit_id, :].values[1:5], dtype='float')
             p_post_metric, neg_post_metric = self._calculate_posterior_prob(unit_metric)
 
             positive_ps = []

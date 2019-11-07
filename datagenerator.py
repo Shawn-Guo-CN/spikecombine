@@ -24,7 +24,11 @@ class DataGenerator(object):
         configs = [
             {'name': 'a'},
             {'name': 'b'},
-            {'name': 'c'}
+            {'name': 'c'},
+            {'name': 'd'}, 
+            {'name': 'e'},
+            {'name': 'f'},
+            {'name': 'g'},
         ]
         return configs
 
