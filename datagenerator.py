@@ -22,13 +22,16 @@ class DataGenerator(object):
     def _load_dataset_configs(self):
         # TODO: the followings are faked
         configs = [
-            {'name': 'a'},
-            {'name': 'b'},
-            {'name': 'c'},
-            {'name': 'd'}, 
-            {'name': 'e'},
-            {'name': 'f'},
-            {'name': 'g'},
+            {
+                'name': 'a', 
+                'file_path': 
+                "E:\\Edin\\RA\\projects\\data\\recordings_36cells_four-tetrodes_30.0_10.0uV_20-06-2019_14_48.h5"
+            },
+            {
+                'name': 'b',
+                'file_path':
+                "E:\\Edin\\RA\\projects\\data\\recordings_20cells_Neuronexus-32_30.0_10.0uV.h5",
+            },
         ]
         return configs
 
@@ -42,7 +45,11 @@ class DataGenerator(object):
 
         TODO: currently, the config file is out-of-operation.
         """
-        return se.example_datasets.toy_example(num_channels=10, duration=50)
+        # return se.example_datasets.toy_example(num_channels=10, duration=50)
+        recording = se.MEArecRecordingExtractor(config['file_path'])
+        sorting_true = se.MEArecSortingExtractor(config['file_path'])
+        return recording, sorting_true
+
 
     @staticmethod
     def _create_dir(dir:str, verbose:bool=False):
