@@ -142,6 +142,10 @@ sw.plot_agreement_matrix(cmp_gt_KL, ordered=True)
 plt.show()
 ```
 
+## Visualising posterior distribution of metrics
+
+Check `vis_params.ipynb`.
+
 ### Todo Note
 
 To generate simulated data based on more sensible configurations, the following functions need to be implemented:
