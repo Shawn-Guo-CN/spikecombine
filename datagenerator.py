@@ -12,7 +12,7 @@ class DataGenerator(object):
     """
     def __init__(self, config_path:str=None, sorters:list=[]) -> None:
         config_path = Path(config_path)
-        self._config_files = [f for f in os.listdir(config_path) if os.path.isfile(config_path / f)]
+        self._config_files = [config_path / f for f in os.listdir(config_path) if os.path.isfile(config_path / f)]
 
         assert set(sorters).issubset(set(ss.available_sorters())), """
             Please check the input sorter names and the installed sorters.
@@ -21,18 +21,15 @@ class DataGenerator(object):
 
     def _load_dataset_configs(self):
         # TODO: the followings are faked
-        configs = [
-            {
-                'name': 'a', 
-                'file_path': 
-                "E:\\Edin\\RA\\projects\\data\\recordings_36cells_four-tetrodes_30.0_10.0uV_20-06-2019_14_48.h5"
-            },
-            {
-                'name': 'b',
-                'file_path':
-                "E:\\Edin\\RA\\projects\\data\\recordings_20cells_Neuronexus-32_30.0_10.0uV.h5",
-            },
-        ]
+        configs = []
+
+        for idx, f in enumerate(self._config_files):
+            new_item = {
+                'name': chr(ord('a') + idx),
+                'file_path': f,
+            }
+            configs.append(new_item)
+
         return configs
 
     def _parse_dataset_config(self):
@@ -82,6 +79,9 @@ class DataGenerator(object):
         config_list = self._load_dataset_configs()
         
         for config in config_list:
+            if verbose:
+                print('processing ' + str(config['file_path'].absolute()))
+
             recording, sorting_true = self.generate_a_dataset(config)
             sampling_freq = recording.get_sampling_frequency()
 
@@ -92,7 +92,7 @@ class DataGenerator(object):
             )
             if verbose:
                 print("Successfully saved the true sorting of generated date to " + \
-                                    Path(out_dir) / 'ground_truth' / (config['name']+'.h5'))
+                                    str((Path(out_dir) / 'ground_truth' / (config['name']+'.h5')).absolute()))
 
             se.MEArecRecordingExtractor.write_recording(
                 recording=recording,
@@ -100,9 +100,12 @@ class DataGenerator(object):
             )
             if verbose:
                 print("Successfully saved the generated recording to " + \
-                                    Path(out_dir) / 'recordings' / (config['name']+'.h5'))
+                                    str((Path(out_dir) / 'recording' / (config['name']+'.h5')).absolute()))
 
             for sorter_name in self._sorter_names:
+                if verbose:
+                    print('processing by ' + sorter_name)
+                    
                 sorting = ss.sorterlist.run_sorter(
                     sorter_name, recording, 
                     output_folder= Path(out_dir) / 'tmp' / (sorter_name + '_' + config['name']),
@@ -117,7 +120,7 @@ class DataGenerator(object):
 
                 if verbose:
                     print("Successfully saved the sorting of generated date to " + \
-                                    Path(out_dir) / 'sorter_results' / sorter_name / (config['name']+'.h5'))
+                                    str((Path(out_dir) / 'sorter_results' / sorter_name / (config['name']+'.h5')).absolute()))
 
 
         if verbose:

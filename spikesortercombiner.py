@@ -62,7 +62,7 @@ class SpikeSortersCombiner(object):
             metrics_df = metric_matrix.get_metrics_df()
 
             for unit_id in sorting_sorter.get_unit_ids():
-                # 1:15 is because that we want to ignore the unit_ids
+                # 1:3 is because that we only have 2 kinds of features
                 appending_value = metrics_df.loc[metrics_df['unit_ids'] == unit_id].values[0][1:3].astype('float')
                 if unit_id in well_detected_units and not np.isnan(appending_value).any():
                     positive_metrics.append(appending_value)
