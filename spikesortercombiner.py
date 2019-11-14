@@ -202,6 +202,8 @@ class SpikeSortersCombiner(object):
         sorter_name: the sorting result we want to evaluate
         threshold: the threshold for agreement that another sorter also detects a unit in 'sorter_name'
         """
+        # TODO: metric calculator could be passed in, epoch_start/end as well.
+
         assert all(True for t in self._params.values() for v in t.values() if v is not None), """
             Please fit or load model before prediction.
         """
